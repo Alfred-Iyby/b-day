@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Happy Birthday</title>
+<!--
+=====================================================================
+  PERSONALIZATION GUIDE — search for these tags to customize:
+
+  [FRIEND_NAME]       -> change the name on Page 1
+  [MESSAGE]           -> change the 2-3 line message on Page 2
+  [TRACKS]            -> list of background music file paths (random one plays on load)
+  [MUSIC_START]       -> seconds into the track to start (0 = from the beginning)
+  [MUSIC_VOLUME]      -> 0.0 to 1.0
+  [BTS_VIDEO_SRC]     -> path to the "Behind the Scenes" video file (in /bts)
+  [PHOTOS]            -> replace the colored <div class="slide"> blocks
+                         with <img class="slide" src="..."> tags
+  [CAPTIONS]          -> change the caption text for each photo in JS
+  [CLOSING]           -> change the closing note on Page 4
+  [SIGNATURE]         -> change the signature on Page 4
+  [SCATTER]           -> the small scattered decorations live in each <div class="page">
+                         as <img class="scatter ..."> tags; files in /resources
+=====================================================================
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Lora:ital,wght@0,400;0,500;1,400&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #FAF7F2;
+  --rose: #C48B9F;
+  --rose-dark: #A06B7F;
+  --rose-light: #EAD2DB;
+  --rose-deep: #8B5B6F;
+  --ink: #3D3330;
+  --paper: #FDFAF5;
+  --leaf: #8a9a7a;
+  --gold: #C9A961;
+}
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Lora', Georgia, serif;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+}
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  position: relative;
+}
+body::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(196, 139, 159, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 85% 80%, rgba(196, 139, 159, 0.08) 0%, transparent 40%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Falling cherry blossoms canvas */
+#sakura-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ============ BOOK SCENE ============ */
+.scene {
+  perspective: 1800px;
+  width: 100%;
+  max-width: 340px;
+  aspect-ratio: 3 / 4.2;
+  position: relative;
+  z-index: 2;
+  animation: sceneIn 1s cubic-bezier(0.215, 0.61, 0.355, 1) both;
+}
+@keyframes sceneIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+.book {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 1.4s cubic-bezier(0.645, 0.045, 0.355, 1);
+}
+.book.opened { transform: translateX(-4%); }
+
+/* Pages container (the paper "body" of the book) */
+.pages {
+  position: absolute;
+  inset: 0;
+  background: var(--paper);
+  border-radius: 2px 10px 10px 2px;
+  box-shadow:
+    0 20px 50px rgba(60, 40, 50, 0.18),
+    0 3px 10px rgba(60, 40, 50, 0.08),
+    inset 3px 0 6px rgba(60, 40, 50, 0.06);
+  transform-style: preserve-3d;
+}
+.pages::before, .pages::after {
+  content: '';
+  position: absolute;
+  top: 2%; bottom: 2%;
+  right: -3px; width: 3px;
+  background: linear-gradient(to right, #E8E0D4, #F4ECDF);
+  border-radius: 0 2px 2px 0;
+}
+.pages::after { right: -6px; background: linear-gradient(to right, #D8CFC0, #E8E0D4); opacity: 0.7; }
+
+/* Pages */
+.page {
+  position: absolute;
+  inset: 0;
+  background: var(--paper);
+  padding: 36px 28px 58px;
+  border-radius: 2px 10px 10px 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  will-change: transform;
+  transition: transform 1s cubic-bezier(0.645, 0.045, 0.355, 1), opacity 0.5s ease, visibility 0s linear 0.5s;
+  background-image:
+    radial-gradient(ellipse at top left, rgba(60, 40, 50, 0.03), transparent 50%),
+    radial-gradient(ellipse at bottom right, rgba(60, 40, 50, 0.02), transparent 50%);
+}
+.page.active {
+  opacity: 1;
+  visibility: visible;
+  transition: transform 1s cubic-bezier(0.645, 0.045, 0.355, 1), opacity 0.5s ease, visibility 0s;
+}
+.page.flipping-out {
+  opacity: 1;
+  visibility: visible;
+  transform: rotateY(-178deg);
+  z-index: 5;
+  pointer-events: none;
+  box-shadow: 8px 0 20px rgba(60, 40, 50, 0.15);
+  transition: transform 1s cubic-bezier(0.645, 0.045, 0.355, 1), visibility 0s;
+}
+.page.flipped-done {
+  /* Already turned; backface-visibility: hidden keeps it invisible */
+  opacity: 1;
+  visibility: visible;
+  transform: rotateY(-178deg);
+  pointer-events: none;
+}
+.page.flipping-back {
+  opacity: 1;
+  visibility: visible;
+  transform: rotateY(0deg);
+  z-index: 5;
+  pointer-events: none;
+  box-shadow: 8px 0 20px rgba(60, 40, 50, 0.15);
+  transition: transform 1s cubic-bezier(0.645, 0.045, 0.355, 1), visibility 0s;
+}
+
+/* ============ COVER ============ */
+.cover {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.07) 0%, transparent 60%),
+    linear-gradient(135deg, var(--rose) 0%, var(--rose-dark) 100%);
+  border-radius: 2px 10px 10px 2px;
+  box-shadow:
+    0 20px 50px rgba(60, 40, 50, 0.25),
+    0 5px 15px rgba(60, 40, 50, 0.12),
+    inset -2px 0 4px rgba(255,255,255,0.1);
+  transform-origin: left center;
+  transition: transform 1.6s cubic-bezier(0.645, 0.045, 0.355, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 30px;
+  backface-visibility: hidden;
+  cursor: pointer;
+  z-index: 10;
+  will-change: transform;
+}
+.book.opened .cover { transform: rotateY(-162deg); }
+
+.cover-border {
+  position: absolute;
+  inset: 14px;
+  border: 1px solid rgba(255, 248, 230, 0.35);
+  border-radius: 2px;
+  pointer-events: none;
+}
+.cover-border::before, .cover-border::after {
+  content: '';
+  position: absolute;
+  width: 14px; height: 14px;
+  border: 1px solid rgba(255, 248, 230, 0.45);
+}
+.cover-border::before { top: -7px; left: -7px; border-right: none; border-bottom: none; }
+.cover-border::after { bottom: -7px; right: -7px; border-left: none; border-top: none; }
+
+.cover-title {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 2.2rem;
+  color: #FDFAF5;
+  text-align: center;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+.cover-title span { display: block; }
+
+.cover-ornament {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 18px 0;
+  color: rgba(253, 250, 245, 0.7);
+}
+.cover-ornament::before, .cover-ornament::after {
+  content: '';
+  width: 30px; height: 1px;
+  background: currentColor;
+}
+.cover-motif {
+  font-family: 'Playfair Display', serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.35em;
+  color: rgba(253, 250, 245, 0.75);
+  text-transform: uppercase;
+}
+
+.tap-hint {
+  position: absolute;
+  bottom: -42px; left: 0; right: 0;
+  text-align: center;
+  color: var(--rose-dark);
+  font-family: 'Caveat', cursive;
+  font-size: 1.15rem;
+  animation: bob 1.8s ease-in-out infinite;
+  letter-spacing: 0.02em;
+}
+@keyframes bob {
+  0%, 100% { transform: translateY(-2px); opacity: 0.7; }
+  50% { transform: translateY(4px); opacity: 1; }
+}
+.book.opened .tap-hint { display: none; }
+
+/* ============ PAGE CONTENT ============ */
+.page-inner {
+  width: 100%;
+  max-width: 260px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.small-caps {
+  font-family: 'Playfair Display', serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--rose-dark);
+  opacity: 0.85;
+}
+
+.flourish {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--rose);
+  opacity: 0.75;
+  width: 100%;
+}
+.flourish::before, .flourish::after {
+  content: '';
+  flex: 0 1 55px;
+  height: 1px;
+  background: currentColor;
+}
+.flourish span {
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+/* Page 1 */
+.hb-title {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 2.1rem;
+  line-height: 1.1;
+  color: var(--ink);
+}
+.hb-title span { display: block; }
+.hb-name {
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
+  font-size: 1.4rem;
+  color: var(--rose-dark);
+  margin-top: 2px;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+}
+
+/* Page 2 */
+.message {
+  font-family: 'Lora', serif;
+  font-style: italic;
+  font-size: 0.8rem;
+  line-height: 1.7;
+  color: var(--ink);
+  padding: 0 4px;
+}
+
+/* Page 3 — Polaroid */
+.polaroid-frame {
+  background: #fff;
+  padding: 10px 10px 58px;
+  box-shadow: 0 10px 25px rgba(60, 40, 50, 0.18), 0 2px 6px rgba(60, 40, 50, 0.08);
+  transform: rotate(-2deg);
+  position: relative;
+  border-radius: 1px;
+  margin-top: 2px;
+}
+.polaroid-window {
+  width: 185px;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  position: relative;
+  background: #F4EEE6;
+  cursor: grab;
+  touch-action: pan-y;
+}
+.polaroid-window:active { cursor: grabbing; }
+.polaroid-slides {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.55s cubic-bezier(0.645, 0.045, 0.355, 1);
+}
+.slide {
+  min-width: 100%;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Caveat', cursive;
+  font-size: 1.5rem;
+  color: rgba(255,255,255,0.9);
+  font-weight: 600;
+  user-select: none;
+  /* "contain" keeps the whole photo visible inside the polaroid window;
+     background fills any empty space around a non-3:4 photo */
+  object-fit: contain;
+  background: #F4EEE6;
+}
+.slide:nth-child(1) { background: linear-gradient(135deg, #D4A5A5, #B88585); }
+.slide:nth-child(2) { background: linear-gradient(135deg, #C4B5A0, #A89880); }
+.slide:nth-child(3) { background: linear-gradient(135deg, #B5C4B0, #8FA08A); }
+.slide:nth-child(4) { background: linear-gradient(135deg, #C4A8B5, #9E8095); }
+.slide:nth-child(5) { background: linear-gradient(135deg, #D4C5A0, #B8A878); }
+.polaroid-caption {
+  position: absolute;
+  bottom: 8px; left: 0; right: 0;
+  text-align: center;
+  font-family: 'Caveat', cursive;
+  font-size: 1.05rem;
+  line-height: 1.2;
+  color: var(--ink);
+  min-height: 22px;
+  padding: 0 10px;
+  word-wrap: break-word;
+}
+.dots {
+  display: flex; gap: 6px;
+  margin-top: 14px;
+  justify-content: center;
+}
+.dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--rose-light);
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+.dot.active {
+  background: var(--rose-dark);
+  width: 18px;
+  border-radius: 3px;
+}
+.swipe-hint {
+  margin-top: 4px;
+  font-family: 'Caveat', cursive;
+  color: var(--rose-dark);
+  font-size: 0.9rem;
+  opacity: 0.85;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  animation: swipeHint 1.8s ease-in-out infinite;
+  transition: opacity 0.5s ease;
+}
+.swipe-hint.hidden { opacity: 0; pointer-events: none; }
+@keyframes swipeHint {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+/* Page 4 — Ending */
+.the-end {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 1.9rem;
+  color: var(--ink);
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+}
+.closing {
+  font-family: 'Lora', serif;
+  font-style: italic;
+  font-size: 0.98rem;
+  line-height: 1.65;
+  color: var(--ink);
+  padding: 0 4px;
+}
+.signature {
+  font-family: 'Caveat', cursive;
+  font-size: 1.4rem;
+  color: var(--rose-dark);
+  margin-top: -2px;
+}
+
+/* Behind the scenes button — intentionally understated, like a footnote */
+.behind-btn {
+  margin-top: 4px;
+  background: transparent;
+  color: var(--rose-dark);
+  border: none;
+  padding: 4px 2px;
+  font-family: 'Lora', serif;
+  font-style: italic;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  opacity: 0.55;
+  transition: opacity 0.25s ease, color 0.25s ease;
+  border-bottom: 1px dashed rgba(160, 107, 127, 0.4);
+  line-height: 1;
+}
+.behind-btn:hover {
+  opacity: 1;
+  color: var(--rose-deep);
+}
+.behind-btn svg { width: 8px; height: 8px; opacity: 0.7; }
+
+/* ============ INFOGRAPHICS ============ */
+.ig {
+  display: block;
+  margin: 4px auto;
+}
+.ig-film { width: 70px; height: auto; }
+
+/* ============ SCATTERED DECORATIONS ============ */
+.page-inner { position: relative; z-index: 2; }
+
+.scatter {
+  position: absolute;
+  pointer-events: none;
+  user-select: none;
+  z-index: 1;
+}
+.scatter-book {
+  height: 46px;
+  width: auto;
+  border-radius: 1.5px;
+  box-shadow: 0 3px 7px rgba(60, 40, 50, 0.25), 0 1px 2px rgba(60, 40, 50, 0.15);
+}
+.scatter-flower {
+  width: 60px;
+  height: auto;
+  filter: drop-shadow(0 2px 3px rgba(60, 40, 50, 0.15));
+}
+.scatter-bike {
+  width: 72px;
+  height: auto;
+  filter: drop-shadow(0 2px 3px rgba(60, 40, 50, 0.18));
+  opacity: 0.92;
+}
+/* Watercolor book stack — larger, no shadow (illustration has its own) */
+.scatter-illus {
+  width: 70px;
+  height: auto;
+  filter: drop-shadow(0 2px 4px rgba(60, 40, 50, 0.15));
+  opacity: 0.95;
+}
+/* Line-drawn / silhouette icons (paw print, pottery hands) */
+.scatter-icon {
+  width: 36px;
+  height: auto;
+  opacity: 0.55;
+  filter: drop-shadow(0 1px 2px rgba(60, 40, 50, 0.18));
+}
+
+@media (max-width: 380px) {
+  .scatter-book { height: 38px; }
+  .scatter-flower { width: 48px; }
+  .scatter-bike { width: 58px; }
+  .scatter-illus { width: 56px; }
+  .scatter-icon { width: 30px; }
+}
+
+/* ============ NAVIGATION BUTTONS ============ */
+.turn-page-btn, .turn-back-btn {
+  position: absolute;
+  bottom: 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--rose-dark);
+  font-family: 'Caveat', cursive;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+  z-index: 3;
+  opacity: 0.9;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+.turn-page-btn { right: 18px; }
+.turn-back-btn { left: 18px; }
+.turn-page-btn:hover, .turn-back-btn:hover { opacity: 1; }
+.turn-page-btn:hover { transform: translateX(3px); }
+.turn-back-btn:hover { transform: translateX(-3px); }
+.turn-page-btn:active { transform: translateX(5px) scale(0.98); }
+.turn-back-btn:active { transform: translateX(-5px) scale(0.98); }
+.turn-page-btn::after {
+  content: '→';
+  font-family: 'Playfair Display', serif;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+.turn-back-btn::before {
+  content: '←';
+  font-family: 'Playfair Display', serif;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+/* Page corners */
+.page-corner {
+  position: absolute;
+  bottom: 0; right: 0;
+  width: 34px; height: 34px;
+  background: linear-gradient(135deg, transparent 50%, rgba(196, 139, 159, 0.12) 50%, rgba(196, 139, 159, 0.22));
+  pointer-events: none;
+  border-radius: 0 0 10px 0;
+}
+
+/* ============ MUSIC BUTTONS ============ */
+.music-controls {
+  position: fixed;
+  top: 16px; right: 16px;
+  display: flex;
+  gap: 8px;
+  z-index: 100;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.9);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.music-controls.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+.music-btn {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: rgba(253, 250, 245, 0.92);
+  border: 1px solid var(--rose-light);
+  color: var(--rose-dark);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: transform 0.2s ease, background 0.2s ease;
+  box-shadow: 0 2px 8px rgba(60, 40, 50, 0.08);
+  padding: 0;
+}
+.music-btn:hover { background: #FFF; }
+.music-btn:active { transform: scale(0.92); }
+.music-btn svg { width: 18px; height: 18px; }
+/* Brief highlight flash when the track is switched */
+.music-btn.flash {
+  background: var(--rose-light);
+  animation: btnFlash 0.5s ease;
+}
+@keyframes btnFlash {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+/* (no hidden YouTube player — we now use a local <audio> element) */
+
+/* ============ BTS MODAL ============ */
+.bts-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(40, 25, 30, 0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 200;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.35s ease, visibility 0s linear 0.35s;
+}
+.bts-modal.open {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.35s ease, visibility 0s;
+}
+.bts-card {
+  width: 100%;
+  max-width: 500px;
+  background: var(--paper);
+  border-radius: 14px;
+  padding: 18px 18px 20px;
+  position: relative;
+  box-shadow: 0 25px 60px rgba(0,0,0,0.35);
+  transform: translateY(20px) scale(0.96);
+  transition: transform 0.4s cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+.bts-modal.open .bts-card { transform: none; }
+.bts-title {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 1.1rem;
+  color: var(--ink);
+  text-align: center;
+  margin-bottom: 12px;
+  padding-right: 28px;
+  padding-left: 4px;
+}
+.bts-video {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.bts-video iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.bts-close {
+  position: absolute;
+  top: 10px; right: 10px;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: var(--rose-light);
+  border: none;
+  color: var(--rose-dark);
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+}
+.bts-close:hover { background: var(--rose); color: var(--paper); }
+
+/* ============ RESPONSIVE ============ */
+@media (max-width: 380px) {
+  .scene { max-width: 300px; }
+  .cover-title { font-size: 1.9rem; }
+  .hb-title { font-size: 1.9rem; }
+  .hb-name { font-size: 1.25rem; }
+  .polaroid-window { width: 158px; aspect-ratio: 3 / 4; }
+  .polaroid-frame { padding-bottom: 54px; }
+  .message { font-size: 0.95rem; }
+  .the-end { font-size: 1.7rem; }
+  .ig-books { width: 130px; }
+  .page-inner { gap: 10px; }
+  .page { padding: 30px 22px 52px; }
+}
+@media (max-height: 640px) {
+  .scene { max-width: 280px; aspect-ratio: 3 / 3.9; }
+  .page { padding: 26px 22px 50px; }
+}
+@media (min-width: 600px) {
+  .scene { max-width: 380px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Falling cherry blossoms canvas (drifts in the background the whole time) -->
+<canvas id="sakura-canvas"></canvas>
+
+<!-- Music toggle -->
+<!-- Music controls: switch track + mute toggle -->
+<div class="music-controls" id="musicControls">
+  <button class="music-btn" id="switchBtn" aria-label="Switch music track" title="Switch track">
+    <!-- Double-arrow (swap) icon -->
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="17 2 21 6 17 10"/>
+      <path d="M3 12V9a3 3 0 0 1 3-3h15"/>
+      <polyline points="7 22 3 18 7 14"/>
+      <path d="M21 12v3a3 3 0 0 1-3 3H3"/>
+    </svg>
+  </button>
+  <button class="music-btn" id="musicBtn" aria-label="Toggle music">
+  <svg id="musicIconOn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 18V5l12-2v13"/>
+    <circle cx="6" cy="18" r="3"/>
+    <circle cx="18" cy="16" r="3"/>
+  </svg>
+  <svg id="musicIconOff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+    <path d="M9 18V5l12-2v13"/>
+    <circle cx="6" cy="18" r="3"/>
+    <circle cx="18" cy="16" r="3"/>
+    <line x1="2" y1="2" x2="22" y2="22"/>
+  </svg>
+  </button>
+</div>
+
+<div class="scene" id="scene">
+  <div class="book" id="book">
+
+    <div class="pages">
+
+      <!-- PAGE 1: Happy Birthday -->
+      <div class="page" id="page1">
+        <!-- Scattered mix: book stack + flower + bike + flower -->
+        <img class="scatter scatter-illus" src="resources/book-stack.png" alt="" style="top: 14px; left: 10px; width: 64px; transform: rotate(-6deg);">
+        <img class="scatter scatter-flower" src="resources/flower-blossom.png" alt="" style="top: 12px; right: -4px; width: 58px; transform: rotate(16deg);">
+        <img class="scatter scatter-bike" src="resources/bike-royal.png" alt="" style="bottom: 62px; left: 8px; width: 62px; transform: rotate(2deg);">
+        <img class="scatter scatter-flower" src="resources/flower-tulips.png" alt="" style="bottom: 66px; right: 12px; width: 46px; transform: rotate(-6deg);">
+
+        <div class="page-inner">
+          <div class="small-caps">Chapter One</div>
+          <div class="flourish"><span>❦</span></div>
+          <h1 class="hb-title"><span>Happy</span><span>Birthday!!</span></h1>
+          <h2>😍</h2>
+          <div class="flourish"><span>❦</span></div>
+          <div class="small-caps">From 8465 KM's away</div>
+        </div>
+        <button class="turn-page-btn" onclick="nextPage()">turn the page</button>
+        <div class="page-corner"></div>
+      </div>
+
+      <!-- PAGE 2: Message -->
+      <div class="page" id="page2">
+        <!-- Scattered mix: flower + book + bike + flower -->
+        <img class="scatter scatter-flower" src="resources/flower-blossom.png" alt="" style="top: 8px; right: -4px; width: 68px; transform: rotate(18deg);">
+        <img class="scatter scatter-book" src="resources/book-life.jpg" alt="" style="top: 26px; left: 10px; transform: rotate(-9deg);">
+        <img class="scatter scatter-bike" src="resources/bike-cruiser.png" alt="" style="bottom: 60px; right: 8px; width: 60px; transform: rotate(3deg) scaleX(-1);">
+        <img class="scatter scatter-flower" src="resources/flower-hibiscus.png" alt="" style="bottom: 68px; left: 16px; width: 42px; transform: rotate(-8deg);">
+
+        <div class="page-inner">
+          <!-- <div class="small-caps">A Few Words</div> -->
+          <div class="flourish"><span>✿</span></div>
+
+          <!-- [MESSAGE] — change the message below (2-3 lines recommended) -->
+          <p class="message">
+Thank you for being a part of my life,<br>
+Thanks for putting up with all my random overthinking, <br>and listening to me blab about random stuff you know nothing about <br>and for always supporting me.<br>
+Thank you for understanding and helping through the chaos.<br>
+<i><b>"You matter to me in ways I don’t always say out loud".</b></i><br>
+I wish i could have been there but couldn't so sending you this. Hope this makes up for it.</p>
+          <div class="flourish"><span>✿</span></div>
+        </div>
+        <button class="turn-back-btn" onclick="prevPage()">back</button>
+        <button class="turn-page-btn" onclick="nextPage()">turn the page</button>
+        <div class="page-corner"></div>
+      </div>
+
+      <!-- PAGE 3: Gift / Polaroid Carousel -->
+      <div class="page" id="page3">
+        <div class="page-inner">
+          <div class="small-caps">A Little Gift</div>
+
+          <div class="polaroid-frame">
+            <div class="polaroid-window" id="polaroidWindow">
+              <!-- [PHOTOS] — replace each <div class="slide">...</div> with an <img> tag, e.g.:
+                   <img class="slide" src="photo1.jpg" alt="">
+                   Keep the count matched with the CAPTIONS array below. -->
+              <div class="polaroid-slides" id="slides">
+                <img class="slide" src="./catalog/1.jpg" alt="">
+                <img class="slide" src="./catalog/2.jpg" alt="">
+                <img class="slide" src="./catalog/3.jpg" alt="">
+                <img class="slide" src="./catalog/4.jpg" alt="">
+                <img class="slide" src="./catalog/5.jpg" alt="">
+                <img class="slide" src="./catalog/6.jpg" alt="">
+                <img class="slide" src="./catalog/7.jpg" alt="">
+              </div>
+            </div>
+            <div class="polaroid-caption" id="caption">with love</div>
+          </div>
+
+          <div class="dots" id="dots"></div>
+          <div class="swipe-hint" id="swipeHint">← swipe →</div>
+        </div>
+        <!-- Page 3 — the polaroid page. Cat-paw top-left nods at the kitty,
+             pottery-hands bottom-left nods at the handmade gift. -->
+        <img class="scatter scatter-icon" src="resources/paw-heart.png" alt="" style="top: 14px; left: 10px; width: 30px; transform: rotate(-10deg);">
+        <img class="scatter scatter-flower" src="resources/flower-blossom.png" alt="" style="top: 10px; right: -2px; width: 48px; transform: rotate(14deg);">
+        <img class="scatter scatter-icon" src="resources/pottery-hands.png" alt="" style="bottom: 60px; left: 10px; width: 48px; transform: rotate(-4deg);">
+        <img class="scatter scatter-flower" src="resources/flower-tulips.png" alt="" style="bottom: 68px; right: 10px; width: 40px; transform: rotate(-8deg);">
+        <button class="turn-back-btn" onclick="prevPage()">back</button>
+        <button class="turn-page-btn" onclick="nextPage()">turn the page</button>
+        <div class="page-corner"></div>
+      </div>
+
+      <!-- PAGE 4: The End -->
+      <div class="page" id="page4">
+        <!-- Scattered mix: book + flower + flower + bike -->
+        <img class="scatter scatter-book" src="resources/book-breath.jpg" alt="" style="top: 20px; left: 12px; height: 40px; transform: rotate(-8deg);">
+        <img class="scatter scatter-flower" src="resources/flower-blossom.png" alt="" style="top: 12px; right: 4px; width: 54px; transform: rotate(14deg);">
+        <img class="scatter scatter-flower" src="resources/flower-hibiscus.png" alt="" style="bottom: 68px; left: 14px; width: 44px; transform: rotate(6deg);">
+        <img class="scatter scatter-bike" src="resources/bike-cruiser.png" alt="" style="bottom: 60px; right: 8px; width: 56px; transform: rotate(-3deg);">
+
+        <div class="page-inner">
+          <div class="small-caps">The End</div>
+          <div class="flourish"><span>❦</span></div>
+          <h2 class="the-end">~ Fin ~</h2>
+
+          <!-- Film / movies infographic -->
+          <svg class="ig ig-film" viewBox="0 0 80 60" xmlns="http://www.w3.org/2000/svg" aria-label="Movies">
+            <rect x="8" y="22" width="64" height="30" rx="2" fill="#FDFAF5" stroke="#A06B7F" stroke-width="1.4"/>
+            <rect x="8" y="10" width="64" height="14" rx="1.5" fill="#A06B7F"/>
+            <path d="M 18 10 L 14 24" stroke="#FDFAF5" stroke-width="2" stroke-linecap="round"/>
+            <path d="M 30 10 L 26 24" stroke="#FDFAF5" stroke-width="2" stroke-linecap="round"/>
+            <path d="M 42 10 L 38 24" stroke="#FDFAF5" stroke-width="2" stroke-linecap="round"/>
+            <path d="M 54 10 L 50 24" stroke="#FDFAF5" stroke-width="2" stroke-linecap="round"/>
+            <path d="M 66 10 L 62 24" stroke="#FDFAF5" stroke-width="2" stroke-linecap="round"/>
+            <text x="40" y="40" text-anchor="middle" font-family="Caveat, cursive" font-size="9" fill="#A06B7F">Take One</text>
+            <line x1="16" y1="46" x2="64" y2="46" stroke="#A06B7F" stroke-width="0.4" opacity="0.4"/>
+          </svg>
+
+          <!-- [CLOSING] — change the closing note below -->
+          <p class="closing">
+            Thank you for being you.
+          </p>
+          <!-- [SIGNATURE] — change the signature -->
+          <div class="signature">— with love</div>
+
+          <button class="behind-btn" onclick="openBTS()" aria-label="Open behind the scenes video">
+            <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+            behind the scenes
+          </button>
+
+          <div class="flourish"><span>❦</span></div>
+        </div>
+        <button class="turn-back-btn" onclick="prevPage()">back</button>
+        <div class="page-corner"></div>
+      </div>
+
+    </div>
+
+    <!-- COVER -->
+    <div class="cover" id="cover" role="button" tabindex="0" aria-label="Open the book">
+      <div class="cover-border"></div>
+      <div class="cover-motif">A Little Story</div>
+      <div class="cover-ornament"></div>
+      <h1 class="cover-title"><span>Happy</span><span>Birthday</span></h1>
+      <div class="cover-ornament"></div>
+      <div class="cover-motif">For You</div>
+      <div class="tap-hint">tap to open</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Behind the Scenes modal -->
+<div class="bts-modal" id="btsModal" role="dialog" aria-modal="true" aria-label="Behind the scenes">
+  <div class="bts-card">
+    <button class="bts-close" onclick="closeBTS()" aria-label="Close">✕</button>
+    <div class="bts-title">Behind the Scenes</div>
+    <div class="bts-video" id="btsVideo">
+      <!-- iframe injected on open, removed on close (so audio doesn't leak) -->
+    </div>
+  </div>
+</div>
+
+<!-- src is set in JS so we can pick a random track on each page load -->
+<audio id="bgMusic" loop preload="auto"></audio>
+
+<script>
+// =====================================================================
+//                         PERSONALIZATION
+// =====================================================================
+
+// [TRACKS] — background music playlist. Add as many paths as you want;
+// one is chosen at random on page load, and the "switch" button cycles
+// through the rest. Accepts any format the browser can play (mp3/m4a/ogg/wav).
+const TRACKS = [
+  "resources/music1.mp3",
+  "resources/music2.mp3"
+];
+// [MUSIC_START] — seconds into the track to begin at (0 = from the beginning)
+const MUSIC_START_TIME = 0;
+// [MUSIC_VOLUME] — 0.0 (silent) to 1.0 (max)
+const MUSIC_VOLUME = 0.6;
+
+// [BTS_VIDEO_SRC] — behind-the-scenes video file (plays with its own original audio)
+const BTS_VIDEO_SRC = "./bts/bts.mp4";
+
+// [CAPTIONS] — one caption per photo (should match number of slides)
+const CAPTIONS = [
+  "I saw you collect",
+  "random bookmarks",
+  "so i made this",
+  "for you",
+  "by hand",
+  "a small thing",
+  "happy birthday! (p.s. he's def not friendly 😑)"
+];
+
+// =====================================================================
+//                             LOGIC
+// =====================================================================
+
+let currentPage = 0;
+let currentSlide = 0;
+let flipLock = false;
+let isMuted = false;
+let wantsMusic = false;
+
+const book = document.getElementById('book');
+const cover = document.getElementById('cover');
+const pages = [
+  document.getElementById('page1'),
+  document.getElementById('page2'),
+  document.getElementById('page3'),
+  document.getElementById('page4')
+];
+const slidesEl = document.getElementById('slides');
+const captionEl = document.getElementById('caption');
+const dotsEl = document.getElementById('dots');
+const swipeHint = document.getElementById('swipeHint');
+const polaroid = document.getElementById('polaroidWindow');
+const musicBtn = document.getElementById('musicBtn');
+const iconOn = document.getElementById('musicIconOn');
+const iconOff = document.getElementById('musicIconOff');
+const btsModal = document.getElementById('btsModal');
+const btsVideoWrap = document.getElementById('btsVideo');
+const bgMusic = document.getElementById('bgMusic');
+const musicControls = document.getElementById('musicControls');
+const switchBtn = document.getElementById('switchBtn');
+
+// ---- Track picker ----
+// Pick a random track on every page open so the music changes between visits.
+let currentTrack = Math.floor(Math.random() * TRACKS.length);
+
+// (Re)load whichever track currentTrack points at; preserve mute/playing state.
+function loadTrack(index) {
+  currentTrack = ((index % TRACKS.length) + TRACKS.length) % TRACKS.length;
+  const wasMuted = bgMusic.muted;
+  const wasPlaying = !bgMusic.paused;
+  bgMusic.src = TRACKS[currentTrack];
+  bgMusic.muted = wasMuted;
+  bgMusic.volume = MUSIC_VOLUME;
+  bgMusic.loop = true;
+  if (MUSIC_START_TIME > 0) {
+    bgMusic.addEventListener('loadedmetadata', () => {
+      try { bgMusic.currentTime = MUSIC_START_TIME; } catch (_) {}
+    }, { once: true });
+  }
+  if (wasPlaying) bgMusic.play().catch(() => {});
+}
+
+// If a track 404s or can't decode, fall back to the next track.
+bgMusic.addEventListener('error', () => {
+  if (TRACKS.length <= 1) return;
+  const fallback = (currentTrack + 1) % TRACKS.length;
+  if (fallback !== currentTrack) {
+    console.warn('Track not available, falling back:', TRACKS[currentTrack]);
+    loadTrack(fallback);
+  }
+});
+
+// Start muted so the browser allows autoplay on page load; unmute on cover-tap.
+bgMusic.muted = true;
+loadTrack(currentTrack);
+bgMusic.play().catch(() => {});
+
+if (TRACKS.length < 2) switchBtn.style.display = 'none';
+
+// ---- Reset to initial state (runs on load + bfcache restore) ----
+function resetToInitial() {
+  currentPage = 0;
+  currentSlide = 0;
+  flipLock = false;
+  book.classList.remove('opened');
+  pages.forEach(p => {
+    p.classList.remove('active', 'flipping-out', 'flipped-done', 'flipping-back');
+  });
+  musicControls.classList.remove('visible');
+  closeBTS();
+  if (swipeHint) swipeHint.classList.remove('hidden');
+  if (slidesEl) slidesEl.style.transform = 'translateX(0)';
+  if (captionEl && CAPTIONS[0]) captionEl.textContent = CAPTIONS[0];
+  if (dotsEl) dotsEl.innerHTML = '';
+}
+window.addEventListener('pageshow', resetToInitial);
+
+// ---- Open the book ----
+cover.addEventListener('click', openBook);
+cover.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openBook(); }
+});
+
+function openBook() {
+  if (currentPage !== 0) return;
+  book.classList.add('opened');
+  currentPage = 1;
+  setTimeout(() => pages[0].classList.add('active'), 800);
+  // Unmute music INSIDE this user-gesture. Browsers always allow unmute
+  // during a real tap/click, and play() here also covers the case where
+  // the initial muted autoplay was rejected.
+  try {
+    bgMusic.muted = false;
+    bgMusic.volume = MUSIC_VOLUME;
+    bgMusic.play().catch(() => { wantsMusic = true; });
+  } catch (_) {}
+  setTimeout(() => musicControls.classList.add('visible'), 1200);
+}
+
+// ---- Forward / back page turns ----
+function nextPage() {
+  if (flipLock) return;
+  if (currentPage < 1 || currentPage >= pages.length) return;
+  flipLock = true;
+  const leaving = pages[currentPage - 1];
+  const entering = pages[currentPage];
+
+  entering.classList.add('active');
+  requestAnimationFrame(() => {
+    leaving.classList.remove('active');
+    leaving.classList.add('flipping-out');
+  });
+
+  setTimeout(() => {
+    leaving.classList.remove('flipping-out');
+    leaving.classList.add('flipped-done');
+    currentPage++;
+    if (currentPage === 3) initCarousel();
+    flipLock = false;
+  }, 1050);
+}
+
+function prevPage() {
+  if (flipLock) return;
+  if (currentPage <= 1) return;
+  flipLock = true;
+  const leaving = pages[currentPage - 1];
+  const returning = pages[currentPage - 2];
+
+  // Start from flipped-done (rotateY -178). Animate back to 0.
+  returning.classList.remove('flipped-done');
+  returning.classList.add('flipping-back');
+  // Fade out current page in place
+  leaving.classList.remove('active');
+
+  setTimeout(() => {
+    returning.classList.remove('flipping-back');
+    returning.classList.add('active');
+    currentPage--;
+    flipLock = false;
+  }, 1050);
+}
+
+// ---- Polaroid carousel ----
+let carouselInited = false;
+function initCarousel() {
+  if (carouselInited) return;
+  carouselInited = true;
+  const total = slidesEl.children.length;
+  dotsEl.innerHTML = '';
+  for (let i = 0; i < total; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    d.addEventListener('click', () => goToSlide(i));
+    dotsEl.appendChild(d);
+  }
+  updateSlide();
+  setTimeout(() => swipeHint.classList.add('hidden'), 8000);
+}
+function goToSlide(i) {
+  const total = slidesEl.children.length;
+  currentSlide = Math.max(0, Math.min(total - 1, i));
+  updateSlide();
+  swipeHint.classList.add('hidden');
+}
+function updateSlide() {
+  slidesEl.style.transform = `translateX(-${currentSlide * 100}%)`;
+  captionEl.textContent = CAPTIONS[currentSlide] || '';
+  [...dotsEl.children].forEach((d, i) => {
+    d.classList.toggle('active', i === currentSlide);
+  });
+}
+
+// Swipe (touch + mouse drag)
+let startX = 0, startY = 0, dragging = false;
+polaroid.addEventListener('touchstart', (e) => {
+  const t = e.changedTouches[0];
+  startX = t.clientX; startY = t.clientY; dragging = true;
+}, { passive: true });
+polaroid.addEventListener('touchend', (e) => {
+  if (!dragging) return;
+  dragging = false;
+  const t = e.changedTouches[0];
+  handleSwipe(t.clientX - startX, t.clientY - startY);
+}, { passive: true });
+polaroid.addEventListener('mousedown', (e) => {
+  startX = e.clientX; startY = e.clientY; dragging = true;
+  e.preventDefault();
+});
+window.addEventListener('mouseup', (e) => {
+  if (!dragging) return;
+  dragging = false;
+  handleSwipe(e.clientX - startX, e.clientY - startY);
+});
+function handleSwipe(dx, dy) {
+  if (Math.abs(dx) < 30 || Math.abs(dx) < Math.abs(dy)) return;
+  const total = slidesEl.children.length;
+  if (dx < 0 && currentSlide < total - 1) currentSlide++;
+  else if (dx > 0 && currentSlide > 0) currentSlide--;
+  updateSlide();
+  swipeHint.classList.add('hidden');
+}
+
+// ---- Switch-track button ----
+switchBtn.addEventListener('click', () => {
+  // Cycle to the next track. Because this is a user-gesture, we can unmute
+  // and play in the same call even if the browser never let us before.
+  loadTrack(currentTrack + 1);
+  isMuted = false;
+  bgMusic.muted = false;
+  bgMusic.volume = MUSIC_VOLUME;
+  bgMusic.play().catch(() => {});
+  // Keep the mute-icon in the "on" state
+  iconOn.style.display = 'block';
+  iconOff.style.display = 'none';
+  // Tiny visual ack so you know the tap registered
+  switchBtn.classList.remove('flash');
+  void switchBtn.offsetWidth; // force reflow so the animation re-triggers
+  switchBtn.classList.add('flash');
+  setTimeout(() => switchBtn.classList.remove('flash'), 600);
+});
+
+// ---- Music button: toggle mute / resume ----
+musicBtn.addEventListener('click', () => {
+  // If playback never actually started (e.g. muted autoplay rejected and the
+  // user tapped the music button before tapping the cover), kick it off now.
+  if (bgMusic.paused) {
+    isMuted = false;
+    bgMusic.muted = false;
+    bgMusic.volume = MUSIC_VOLUME;
+    bgMusic.play().catch(() => {});
+    iconOn.style.display = 'block';
+    iconOff.style.display = 'none';
+    return;
+  }
+  isMuted = !isMuted;
+  bgMusic.muted = isMuted;
+  iconOn.style.display  = isMuted ? 'none'  : 'block';
+  iconOff.style.display = isMuted ? 'block' : 'none';
+});
+
+// ---- Behind the Scenes modal ----
+function openBTS() {
+  // Build a fresh <video> element each open so it always starts from 0
+  // and its original soundtrack plays unmuted.
+  btsVideoWrap.innerHTML = `
+    <video
+      src="${BTS_VIDEO_SRC}"
+      controls
+      autoplay
+      playsinline
+      preload="metadata"
+      style="width:100%;height:100%;background:#000;">
+      Sorry, your browser can't play this video.
+    </video>`;
+  btsModal.classList.add('open');
+}
+function closeBTS() {
+  btsModal.classList.remove('open');
+  // Stop the <video> entirely so no audio keeps playing
+  const v = btsVideoWrap.querySelector('video');
+  if (v) { try { v.pause(); } catch (_) {} }
+  btsVideoWrap.innerHTML = '';
+  // Resume background music if not muted
+  if (!isMuted) { try { bgMusic.play().catch(() => {}); } catch (_) {} }
+}
+// Close modal on backdrop click
+btsModal.addEventListener('click', (e) => {
+  if (e.target === btsModal) closeBTS();
+});
+// Close on Esc
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && btsModal.classList.contains('open')) closeBTS();
+});
+
+// =====================================================================
+//               FALLING CHERRY BLOSSOMS (sakura canvas)
+// =====================================================================
+(function initSakura() {
+  const canvas = document.getElementById('sakura-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const isSmall = window.matchMedia('(max-width: 600px)').matches;
+  const PETAL_COUNT = isSmall ? 28 : 45;
+  const COLORS = ['#FFB7C5', '#FFC7D2', '#F7A8BB', '#EAD2DB'];
+
+  let w = 0, h = 0;
+  function resize() {
+    w = window.innerWidth;
+    h = window.innerHeight;
+    canvas.width = w * DPR;
+    canvas.height = h * DPR;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  function rand(min, max) { return min + Math.random() * (max - min); }
+
+  function Petal(initial) {
+    this.reset(initial);
+  }
+  Petal.prototype.reset = function (initial) {
+    this.x = Math.random() * w;
+    this.y = initial ? Math.random() * h * 2 - h : -20 - Math.random() * 40;
+    this.wSize = rand(16, 28);
+    this.hSize = rand(12, 20);
+    this.opacity = this.wSize / 34;
+    this.flip = Math.random() * Math.PI * 2;
+    this.xSpeed = rand(0.4, 1.2);       // sideways drift
+    this.ySpeed = rand(0.6, 1.4);       // fall speed
+    this.flipSpeed = rand(0.01, 0.03);  // flutter rate
+    this.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+    this.sway = rand(0.3, 0.9);
+  };
+  Petal.prototype.step = function () {
+    this.x += this.xSpeed + Math.cos(this.flip) * this.sway;
+    this.y += this.ySpeed + Math.sin(this.flip) * 0.3;
+    this.flip += this.flipSpeed;
+    if (this.y > h + 30 || this.x > w + 40) this.reset(false);
+  };
+  Petal.prototype.draw = function () {
+    ctx.save();
+    ctx.globalAlpha = this.opacity;
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.moveTo(this.x, this.y);
+    // Two bezier curves form a petal shape; cos(flip) subtly warps its width for flutter
+    ctx.bezierCurveTo(
+      this.x + this.wSize / 2, this.y,
+      this.x + this.wSize / 2 + 8 * Math.cos(this.flip), this.y + this.hSize,
+      this.x, this.y + this.hSize
+    );
+    ctx.bezierCurveTo(
+      this.x - this.wSize / 2 - 8 * Math.cos(this.flip), this.y + this.hSize,
+      this.x - this.wSize / 2, this.y,
+      this.x, this.y
+    );
+    ctx.fill();
+    ctx.restore();
+  };
+
+  const petals = [];
+  for (let i = 0; i < PETAL_COUNT; i++) petals.push(new Petal(true));
+
+  let running = true;
+  function loop() {
+    if (!running) return;
+    ctx.clearRect(0, 0, w, h);
+    for (let i = 0; i < petals.length; i++) {
+      petals[i].step();
+      petals[i].draw();
+    }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // Pause the animation when the tab is hidden (saves battery)
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      running = false;
+    } else if (!running) {
+      running = true;
+      requestAnimationFrame(loop);
+    }
+  });
+})();
+</script>
+</body>
+</html>
