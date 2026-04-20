@@ -124,12 +124,18 @@ body::before {
 }
 .pages::after { right: -6px; background: linear-gradient(to right, #D8CFC0, #E8E0D4); opacity: 0.7; }
 
-/* Pages */
+/* Pages —
+   IMPORTANT: No backface-visibility or transform-style on .page itself.
+   Older iOS WebKit (iPhone 11 / A13 + iOS 26) has a compositing bug where
+   backface-visibility:hidden inside a preserve-3d ancestor hides elements
+   that have no active rotateY transform. Instead we control visibility
+   purely through opacity + visibility, and only add backface-visibility
+   on the actively-flipping class. */
 .page {
   position: absolute;
   inset: 0;
   background: var(--paper);
-  padding: 36px 28px 58px;
+  padding: 28px 20px 50px;
   border-radius: 2px 10px 10px 2px;
   display: flex;
   flex-direction: column;
@@ -137,14 +143,13 @@ body::before {
   justify-content: center;
   opacity: 0;
   visibility: hidden;
-  transform: translateZ(0);
   transform-origin: left center;
-  -webkit-transform-style: preserve-3d;
-  transform-style: preserve-3d;
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-  will-change: transform;
-  transition: transform 1s cubic-bezier(0.645, 0.045, 0.355, 1), opacity 0.5s ease, visibility 0s linear 0.5s;
+  transition: transform 1s cubic-bezier(0.645, 0.045, 0.355, 1),
+              opacity 0.4s ease,
+              visibility 0s linear 0.4s;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   background-image:
     radial-gradient(ellipse at top left, rgba(60, 40, 50, 0.03), transparent 50%),
     radial-gradient(ellipse at bottom right, rgba(60, 40, 50, 0.02), transparent 50%);
@@ -152,33 +157,40 @@ body::before {
 .page.active {
   opacity: 1;
   visibility: visible;
-  transform: translateZ(0) rotateY(0deg);
-  transition: transform 1s cubic-bezier(0.645, 0.045, 0.355, 1), opacity 0.5s ease, visibility 0s;
+  transition: transform 1s cubic-bezier(0.645, 0.045, 0.355, 1),
+              opacity 0.4s ease,
+              visibility 0s;
 }
 .page.flipping-out {
+  /* Only the actively-flipping page gets backface-visibility */
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
   opacity: 1;
   visibility: visible;
   transform: rotateY(-178deg);
   z-index: 5;
   pointer-events: none;
   box-shadow: 8px 0 20px rgba(60, 40, 50, 0.15);
-  transition: transform 1s cubic-bezier(0.645, 0.045, 0.355, 1), visibility 0s;
+  transition: transform 1s cubic-bezier(0.645, 0.045, 0.355, 1),
+              visibility 0s;
 }
 .page.flipped-done {
-  /* Already turned; backface-visibility: hidden keeps it invisible */
-  opacity: 1;
-  visibility: visible;
+  /* Hidden via opacity — NOT via backface-visibility (iOS bug) */
+  opacity: 0;
+  visibility: hidden;
   transform: rotateY(-178deg);
   pointer-events: none;
 }
 .page.flipping-back {
   opacity: 1;
   visibility: visible;
-  transform: translateZ(0) rotateY(0deg);
+  transform: rotateY(0deg);
   z-index: 5;
   pointer-events: none;
   box-shadow: 8px 0 20px rgba(60, 40, 50, 0.15);
-  transition: transform 1s cubic-bezier(0.645, 0.045, 0.355, 1), visibility 0s;
+  transition: transform 1s cubic-bezier(0.645, 0.045, 0.355, 1),
+              opacity 0.3s ease,
+              visibility 0s;
 }
 
 /* ============ COVER ============ */
@@ -277,12 +289,12 @@ body::before {
 /* ============ PAGE CONTENT ============ */
 .page-inner {
   width: 100%;
-  max-width: 260px;
+  max-width: 280px;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
 }
 
 .small-caps {
@@ -338,8 +350,8 @@ body::before {
 .message {
   font-family: 'Lora', serif;
   font-style: italic;
-  font-size: 0.8rem;
-  line-height: 1.7;
+  font-size: clamp(0.68rem, 1.8vw, 0.8rem);
+  line-height: 1.55;
   color: var(--ink);
   padding: 0 4px;
 }
@@ -723,25 +735,45 @@ body::before {
 .bts-close:hover { background: var(--rose); color: var(--paper); }
 
 /* ============ RESPONSIVE ============ */
-@media (max-width: 380px) {
-  .scene { max-width: 300px; }
-  .cover-title { font-size: 1.9rem; }
+/* iPhone 11 and similar (375–430px wide) */
+@media (max-width: 430px) {
+  .scene { max-width: 320px; }
+  .page { padding: 24px 18px 46px; }
+  .page-inner { gap: 8px; max-width: 270px; }
   .hb-title { font-size: 1.9rem; }
-  .hb-name { font-size: 1.25rem; }
-  .polaroid-window { width: 158px; aspect-ratio: 3 / 4; }
-  .polaroid-frame { padding-bottom: 54px; }
-  .message { font-size: 0.95rem; }
+  .hb-name { font-size: 1.2rem; }
   .the-end { font-size: 1.7rem; }
-  .ig-books { width: 130px; }
-  .page-inner { gap: 10px; }
-  .page { padding: 30px 22px 52px; }
+  .closing { font-size: 0.88rem; }
+  .polaroid-window { width: 165px; }
+  .polaroid-frame { padding-bottom: 50px; }
+  .polaroid-caption { font-size: 0.95rem; }
 }
+/* Very small phones (iPhone SE etc.) */
+@media (max-width: 380px) {
+  .scene { max-width: 290px; }
+  .cover-title { font-size: 1.8rem; }
+  .hb-title { font-size: 1.7rem; }
+  .hb-name { font-size: 1.1rem; }
+  .polaroid-window { width: 148px; }
+  .polaroid-frame { padding-bottom: 46px; }
+  .page-inner { gap: 6px; max-width: 250px; }
+  .page { padding: 22px 16px 44px; }
+  .scatter-book { height: 38px; }
+  .scatter-flower { width: 48px; }
+  .scatter-bike { width: 58px; }
+  .scatter-illus { width: 56px; }
+  .scatter-icon { width: 30px; }
+}
+/* Short viewports */
 @media (max-height: 640px) {
   .scene { max-width: 280px; aspect-ratio: 3 / 3.9; }
-  .page { padding: 26px 22px 50px; }
+  .page { padding: 22px 16px 44px; }
+  .page-inner { gap: 6px; }
 }
+/* Tablets / wider screens */
 @media (min-width: 600px) {
   .scene { max-width: 380px; }
+  .page-inner { gap: 14px; }
 }
 </style>
 </head>
