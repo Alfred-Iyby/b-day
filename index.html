@@ -147,9 +147,9 @@ body::before {
   transition: transform 1s cubic-bezier(0.645, 0.045, 0.355, 1),
               opacity 0.4s ease,
               visibility 0s linear 0.4s;
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
+  /* Do NOT set overflow here — on iOS WebKit, overflow other than
+     'visible' on a child of a preserve-3d parent forces flattening
+     of the 3D stacking context and can blank out the entire page. */
   background-image:
     radial-gradient(ellipse at top left, rgba(60, 40, 50, 0.03), transparent 50%),
     radial-gradient(ellipse at bottom right, rgba(60, 40, 50, 0.02), transparent 50%);
@@ -368,6 +368,7 @@ body::before {
 }
 .polaroid-window {
   width: 185px;
+  height: 247px; /* fallback for browsers without aspect-ratio */
   aspect-ratio: 3 / 4;
   overflow: hidden;
   position: relative;
@@ -378,25 +379,20 @@ body::before {
 .polaroid-window:active { cursor: grabbing; }
 .polaroid-slides {
   display: flex;
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 0;
   transition: transform 0.55s cubic-bezier(0.645, 0.045, 0.355, 1);
 }
 .slide {
   min-width: 100%;
   width: 100%;
   height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: 'Caveat', cursive;
-  font-size: 1.5rem;
-  color: rgba(255,255,255,0.9);
-  font-weight: 600;
+  display: block;
   user-select: none;
-  /* "contain" keeps the whole photo visible inside the polaroid window;
-     background fills any empty space around a non-3:4 photo */
-  object-fit: contain;
+  -webkit-user-drag: none;
+  /* "cover" fills the polaroid window; "contain" would letterbox */
+  object-fit: cover;
+  object-position: center;
   background: #F4EEE6;
 }
 .slide:nth-child(1) { background: linear-gradient(135deg, #D4A5A5, #B88585); }
@@ -744,7 +740,7 @@ body::before {
   .hb-name { font-size: 1.2rem; }
   .the-end { font-size: 1.7rem; }
   .closing { font-size: 0.88rem; }
-  .polaroid-window { width: 165px; }
+  .polaroid-window { width: 165px; height: 220px; }
   .polaroid-frame { padding-bottom: 50px; }
   .polaroid-caption { font-size: 0.95rem; }
 }
@@ -754,7 +750,7 @@ body::before {
   .cover-title { font-size: 1.8rem; }
   .hb-title { font-size: 1.7rem; }
   .hb-name { font-size: 1.1rem; }
-  .polaroid-window { width: 148px; }
+  .polaroid-window { width: 148px; height: 197px; }
   .polaroid-frame { padding-bottom: 46px; }
   .page-inner { gap: 6px; max-width: 250px; }
   .page { padding: 22px 16px 44px; }
@@ -1120,15 +1116,14 @@ function nextPage() {
   const leaving = pages[currentPage - 1];
   const entering = pages[currentPage];
 
+  // Make the entering page visible first. Use a short delay so
+  // iOS WebKit has time to composite the new layer before we
+  // start the flip animation on the outgoing page.
   entering.classList.add('active');
-  // Double-rAF: gives older iOS WebKit two frames to composite the
-  // entering page before we start the flip animation on the leaving page.
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      leaving.classList.remove('active');
-      leaving.classList.add('flipping-out');
-    });
-  });
+  setTimeout(() => {
+    leaving.classList.remove('active');
+    leaving.classList.add('flipping-out');
+  }, 50);
 
   setTimeout(() => {
     leaving.classList.remove('flipping-out');
@@ -1136,7 +1131,7 @@ function nextPage() {
     currentPage++;
     if (currentPage === 3) initCarousel();
     flipLock = false;
-  }, 1050);
+  }, 1100);
 }
 
 function prevPage() {
@@ -1146,11 +1141,16 @@ function prevPage() {
   const leaving = pages[currentPage - 1];
   const returning = pages[currentPage - 2];
 
-  // Start from flipped-done (rotateY -178). Animate back to 0.
+  // The returning page is in flipped-done (opacity:0, rotateY:-178deg).
+  // Swap to flipping-back which animates it to rotateY(0) + opacity:1.
   returning.classList.remove('flipped-done');
   returning.classList.add('flipping-back');
-  // Fade out current page in place
-  leaving.classList.remove('active');
+
+  // Keep the leaving page visible briefly so there's no blank gap
+  // while the returning page fades/rotates in.
+  setTimeout(() => {
+    leaving.classList.remove('active');
+  }, 300);
 
   setTimeout(() => {
     returning.classList.remove('flipping-back');
